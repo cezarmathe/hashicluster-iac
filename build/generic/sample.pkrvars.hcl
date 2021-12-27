@@ -2,7 +2,7 @@
 #
 # Sample packer variables file for building a generic machine image.
 
-aws_region = "eu-east-1"
+aws_region = "us-east-1"
 
 aws_ami_force_deregister      = false
 aws_ami_force_delete_snapshot = false
