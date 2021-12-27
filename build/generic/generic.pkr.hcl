@@ -59,6 +59,9 @@ locals {
 
   # Instance type to use for building the AWS AMI.
   instance_type = var.mi_arch == "amd64" ? var.aws_builders.amd64 : var.mi_arch == "arm64" ? var.aws_builders.arm64 : null
+
+  # Machine architecture.
+  mi_arch = var.mi_arch == "amd64" ? "x86_64" : var.mi_arch == "arm64" ? "aarch64" : null
 }
 
 source "vagrant" "generic" {
@@ -75,9 +78,10 @@ source "amazon-ebs" "generic" {
   region        = var.aws_region
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/hvm-ssd/ubuntu-focal-20.04-${var.mi_arch}-server-*"
+      name                = "ubuntu/images/hvm-ssd/ubuntu-*-20.04-${var.mi_arch}-server-*"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
+      architecture        = local.mi_arch
     }
     most_recent = true
     owners      = ["099720109477"]
@@ -94,6 +98,12 @@ build {
     "source.vagrant.generic",
     "source.amazon-ebs.generic",
   ]
+
+  # wait for cloud-init to finish
+  provisioner "shell" {
+    only   = ["amazon-ebs.generic"]
+    inline = ["/usr/bin/cloud-init status --wait"]
+  }
 
   # run setup scripts
   provisioner "shell" {

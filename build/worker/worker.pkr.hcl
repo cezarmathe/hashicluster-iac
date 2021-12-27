@@ -44,7 +44,7 @@ variable "aws_builders" {
 variable "aws_source_ami" {
   type        = string
   description = "Source AMI used for building this AMI."
-  default     = "hashicluster-generic-ami-*-*"
+  default     = "hashicluster-generic-ami-dev-*"
 }
 
 variable "mi_arch" {
@@ -65,6 +65,9 @@ locals {
 
   # Instance type to use for building the AWS AMI.
   instance_type = var.mi_arch == "amd64" ? var.aws_builders.amd64 : var.mi_arch == "arm64" ? var.aws_builders.arm64 : null
+
+  # Machine architecture.
+  mi_arch = var.mi_arch == "amd64" ? "x86_64" : var.mi_arch == "arm64" ? "aarch64" : null
 }
 
 source "vagrant" "worker" {
@@ -84,7 +87,7 @@ source "amazon-ebs" "worker" {
       name                = var.aws_source_ami
       root-device-type    = "ebs"
       virtualization-type = "hvm"
-      arch                = var.mi_arch
+      architecture        = local.mi_arch
     }
     most_recent = true
     owners      = ["self"]
@@ -101,6 +104,22 @@ build {
     "source.vagrant.worker",
     "source.amazon-ebs.worker",
   ]
+
+  # wait for cloud-init to finish
+  provisioner "shell" {
+    only   = ["amazon-ebs.worker"]
+    inline = ["/usr/bin/cloud-init status --wait"]
+  }
+
+  # re-initialize the hashicorp repo
+  # fixme 27/12/2021: for some reason, the repo does not persist since it gets
+  #                   added in the generic AMI
+  provisioner "shell" {
+    only    = ["amazon-ebs.worker"]
+    scripts = [
+      "scripts/hashicorp_setup.sh",
+    ]
+  }
 
   # create config tmp dirs
   provisioner "shell" {
