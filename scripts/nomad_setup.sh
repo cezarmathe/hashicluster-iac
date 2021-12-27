@@ -17,7 +17,7 @@ set -u
 NOMAD_SETUP_TMP_DIR="/tmp/nomad-setup"
 
 # install nomad
-sudo apt install --yes nomad
+sudo apt-get install --yes nomad
 
 # if the setup tmp dir exists
 if [[ -d "${NOMAD_SETUP_TMP_DIR}" ]]; then

@@ -17,7 +17,7 @@ set -u
 VAULT_SETUP_TMP_DIR="/tmp/vault-setup"
 
 # install vault
-sudo apt install --yes vault
+sudo apt-get install --yes vault
 
 # if the setup tmp dir exists
 if [[ -d "${VAULT_SETUP_TMP_DIR}" ]]; then

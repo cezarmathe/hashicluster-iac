@@ -17,7 +17,7 @@ set -u
 CONSUL_SETUP_TMP_DIR="/tmp/consul-setup"
 
 # install consul
-sudo apt install --yes consul
+sudo apt-get install --yes consul
 
 # if the setup tmp dir exists
 if [[ -d "${CONSUL_SETUP_TMP_DIR}" ]]; then

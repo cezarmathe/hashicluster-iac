@@ -6,4 +6,5 @@
 
 set -euxo pipefail
 
-sudo apt install --yes ranger jq
+sudo apt-get update
+sudo apt-get install --yes ranger jq
