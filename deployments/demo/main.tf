@@ -1,7 +1,7 @@
 # main.tf
 
 provider "aws" {
-  region = local.region
+  region = var.region
 }
 
 data "aws_ami" "master" {
@@ -10,7 +10,7 @@ data "aws_ami" "master" {
 
   filter {
     name   = "name"
-    values = ["hashicluster-master-ami-*-amd64"]
+    values = ["${local.name}-master-ami-*-amd64"]
   }
   filter {
     name   = "architecture"
@@ -24,7 +24,7 @@ data "aws_ami" "worker" {
 
   filter {
     name   = "name"
-    values = ["hashicluster-worker-ami-*-amd64"]
+    values = ["${local.name}-worker-ami-*-amd64"]
   }
   filter {
     name   = "architecture"
@@ -39,7 +39,7 @@ module "cluster_vpc" {
   name = local.name
   cidr = "10.42.0.0/16"
 
-  azs              = ["${local.region}a", "${local.region}b", "${local.region}c"]
+  azs              = ["${var.region}a", "${var.region}b", "${var.region}c"]
   public_subnets   = ["10.42.0.0/24", "10.42.1.0/24", "10.42.2.0/24"]
   private_subnets  = ["10.42.100.0/24", "10.42.101.0/24", "10.42.102.0/24"]
   database_subnets = ["10.42.200.0/24", "10.42.201.0/24", "10.42.202.0/24"]
@@ -52,7 +52,7 @@ module "cluster_external_security_group" {
   version = "~> 4.0"
 
   name        = local.name
-  description = "HashiCluster security group."
+  description = "Security group for external traffic."
   vpc_id      = module.cluster_vpc.vpc_id
 
   ingress_cidr_blocks = ["0.0.0.0/0"]
@@ -68,7 +68,7 @@ module "cluster_internal_security_group" {
   version = "~> 4.0"
 
   name        = local.name
-  description = "HashiCluster security group."
+  description = "Security group for internal traffic."
   vpc_id      = module.cluster_vpc.vpc_id
 
   ingress_cidr_blocks = ["10.42.0.0/16"]
@@ -85,12 +85,12 @@ module "cluster_master" {
 
   count = 3
 
-  name                        = "${local.name}-master-${count.index}"
-  ami                         = data.aws_ami.master.id
-  instance_type               = "t3a.micro"
-  availability_zone           = element(module.cluster_vpc.azs, count.index % 3)
-  subnet_id                   = element(module.cluster_vpc.public_subnets, count.index % 3)
-  vpc_security_group_ids      = [
+  name              = "${local.name}-master-${count.index}"
+  ami               = data.aws_ami.master.id
+  instance_type     = "t3a.micro"
+  availability_zone = element(module.cluster_vpc.azs, count.index % 3)
+  subnet_id         = element(module.cluster_vpc.public_subnets, count.index % 3)
+  vpc_security_group_ids = [
     module.cluster_external_security_group.security_group_id,
     module.cluster_internal_security_group.security_group_id,
   ]
@@ -108,12 +108,12 @@ module "cluster_worker" {
 
   count = 5
 
-  name                        = "${local.name}-worker-${count.index}"
-  ami                         = data.aws_ami.worker.id
-  instance_type               = "t3a.micro"
-  availability_zone           = element(module.cluster_vpc.azs, count.index % 3)
-  subnet_id                   = element(module.cluster_vpc.public_subnets, count.index % 3)
-  vpc_security_group_ids      = [
+  name              = "${local.name}-worker-${count.index}"
+  ami               = data.aws_ami.worker.id
+  instance_type     = "t3a.micro"
+  availability_zone = element(module.cluster_vpc.azs, count.index % 3)
+  subnet_id         = element(module.cluster_vpc.public_subnets, count.index % 3)
+  vpc_security_group_ids = [
     module.cluster_external_security_group.security_group_id,
     module.cluster_internal_security_group.security_group_id,
   ]
@@ -134,7 +134,7 @@ module "cluster_ec2_member_role" {
 
   # fixme 27/12/2021: this is probably insanely bad
   trusted_role_arns = ["*"]
-  role_name         = "hashicluster-ec2-cluster-member-role"
+  role_name         = "${local.name}-ec2-cluster-member-role"
   role_requires_mfa = false
 
   custom_role_policy_arns           = [module.cluster_ec2_member_policy.arn]
@@ -146,8 +146,8 @@ module "cluster_ec2_member_policy" {
   version = "~> 4.3"
 
   name        = "ec2-cluster-member-policy"
-  path        = "/HashiCluster/"
-  description = "Policy for HashiCluster cluster members."
+  path        = "/${local.name}/"
+  description = "Policy for cluster members."
 
   policy = <<EOF
 {
@@ -167,16 +167,12 @@ EOF
 
 # The ssh key of the operator.
 resource "aws_key_pair" "operator" {
-  key_name   = "hashicluster-operator"
-  public_key = "< YOUR_SSH_KEY_HERE >"
+  key_name   = "${local.name}-operator"
+  public_key = var.ssh_key
 }
 
 locals {
-  run_cluster = true
-
   name = "hashicluster"
-
-  region = "< YOUR_AWS_REGION_HERE >"
 
   tags = {
     Terraform              = true
